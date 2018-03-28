@@ -20,6 +20,16 @@ public class EntityFieldInflater extends FieldInflater {
     @Override
     public void inflate() {
         try {
+//            if(fieldType == Integer.class){
+//               Integer id = cursor.getInt(cursor.getColumnIndex(NamingHelper.toColumnName(field)));
+//               field.set(object, (id > 0) ? SugarRecord.findById(fieldType, id) : null);
+//            }else if(fieldType == Long.class){
+//                Long id = cursor.getLong(cursor.getColumnIndex(NamingHelper.toColumnName(field)));
+//                field.set(object, (id > 0) ? SugarRecord.findById(fieldType, id) : null);
+//            }else if(fieldType == String.class){
+//                String id = cursor.getString(cursor.getColumnIndex(NamingHelper.toColumnName(field)));
+//                field.set(object, SugarRecord.findById(fieldType, id));
+//            }
             long id = cursor.getLong(cursor.getColumnIndex(NamingHelper.toColumnName(field)));
             field.set(object, (id > 0) ? SugarRecord.findById(fieldType, id) : null);
         } catch (IllegalAccessException e) {

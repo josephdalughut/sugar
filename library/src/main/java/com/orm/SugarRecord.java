@@ -22,9 +22,9 @@ import java.util.*;
 import static com.orm.SugarContext.getSugarContext;
 
 public class SugarRecord {
-    public static final String SUGAR = "Sugar";
 
-    private Long id = null;
+    public static final String LOG_TAG = "Sugar";
+
 
     private static SQLiteDatabase getSugarDataBase() {
         return getSugarContext().getSugarDb().getDB();
@@ -61,7 +61,7 @@ public class SugarRecord {
             sqLiteDatabase.setTransactionSuccessful();
         } catch (Exception e) {
             if (ManifestHelper.isDebugEnabled()) {
-                Log.i(SUGAR, "Error in saving in transaction " + e.getMessage());
+                Log.i(LOG_TAG, "Error in saving in transaction " + e.getMessage());
             }
         } finally {
             sqLiteDatabase.endTransaction();
@@ -86,7 +86,7 @@ public class SugarRecord {
             sqLiteDatabase.setTransactionSuccessful();
         } catch (Exception e) {
             if (ManifestHelper.isDebugEnabled()) {
-                Log.i(SUGAR, "Error in saving in transaction " + e.getMessage());
+                Log.i(LOG_TAG, "Error in saving in transaction " + e.getMessage());
             }
         } finally {
             sqLiteDatabase.endTransaction();
@@ -115,7 +115,7 @@ public class SugarRecord {
         } catch (Exception e) {
             deletedRows = 0;
             if(ManifestHelper.isDebugEnabled()) {
-                Log.i(SUGAR, "Error in deleting in transaction " + e.getMessage());
+                Log.i(LOG_TAG, "Error in deleting in transaction " + e.getMessage());
             }
         } finally {
             sqLiteDatabase.endTransaction();
@@ -133,7 +133,10 @@ public class SugarRecord {
     }
 
     public static <T> T findById(Class<T> type, Long id) {
-        List<T> list = find(type, "id=?", new String[]{String.valueOf(id)}, null, null, "1");
+        Field idField = SchemaGenerator.findAnnotatedField(type, Id.class);
+        if(idField == null)
+            return null;
+        List<T> list = find(type, idField.getName()+"=?", new String[]{String.valueOf(id)}, null, null, "1");
         if (list.isEmpty()) return null;
         return list.get(0);
     }
@@ -142,8 +145,20 @@ public class SugarRecord {
         return findById(type, Long.valueOf(id));
     }
 
+    public static <T> T findById(Class<T> type, String id) {
+        Field idField = SchemaGenerator.findAnnotatedField(type, Id.class);
+        if(idField == null)
+            return null;
+        List<T> list = find(type, idField.getName()+"=?", new String[]{id}, null, null, "1");
+        if (list.isEmpty()) return null;
+        return list.get(0);
+    }
+
     public static <T> List<T> findById(Class<T> type, String... ids) {
-        String whereClause = "id IN (" + QueryBuilder.generatePlaceholders(ids.length) + ")";
+        Field idField = SchemaGenerator.findAnnotatedField(type, Id.class);
+        if(idField == null)
+            return null;
+        String whereClause = idField.getName()+" IN (" + QueryBuilder.generatePlaceholders(ids.length) + ")";
         return find(type, whereClause, ids);
     }
 
@@ -223,19 +238,49 @@ public class SugarRecord {
         return getEntitiesFromCursor(cursor, type, null, null);
     }
 
+    public static <T> T getEntityFromCursor(Cursor cursor, Class<T> type){
+        T entity = null;
+        try {
+            entity = type.getDeclaredConstructor().newInstance();
+            new EntityInflater()
+                    .withCursor(cursor)
+                    .withObject(entity)
+                    .withEntitiesMap(getSugarContext().getEntitiesMap())
+                    .withRelationFieldName(null)
+                    .withRelationObject(null)
+                    .inflate();
+
+            //set id here
+            Field idField = SchemaGenerator.findAnnotatedField(type, Id.class);
+            if(idField != null){
+                idField.setAccessible(true);
+                Object id =null;
+                if(idField.getType() == Integer.class){
+                    id = cursor.getInt(cursor.getColumnIndex(idField.getName()));
+                }else if(idField.getType() == Long.class){
+                    id = cursor.getLong(cursor.getColumnIndex(idField.getName()));
+                    idField.set(entity, id);
+                }else if(idField.getType() == String.class){
+                    id = cursor.getString(cursor.getColumnIndex(idField.getName()));
+                }
+                if(id != null){
+                    idField.set(entity, id);
+                }
+            }
+
+            return entity;
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        return entity;
+    }
+
     public static <T> List<T> getEntitiesFromCursor(Cursor cursor, Class<T> type, String relationFieldName, Object relationObject){
         T entity;
         List<T> result = new ArrayList<>();
         try {
             while (cursor.moveToNext()) {
-                entity = type.getDeclaredConstructor().newInstance();
-                new EntityInflater()
-                        .withCursor(cursor)
-                        .withObject(entity)
-                        .withEntitiesMap(getSugarContext().getEntitiesMap())
-                        .withRelationFieldName(relationFieldName)
-                        .withRelationObject(relationObject)
-                        .inflate();
+                entity = getEntityFromCursor(cursor, type);
                 result.add(entity);
             }
         } catch (Exception e) {
@@ -316,20 +361,28 @@ public class SugarRecord {
     }
 
     static long save(SQLiteDatabase db, Object object) {
-        Map<Object, Long> entitiesMap = getSugarContext().getEntitiesMap();
+        Map<Object, Object> entitiesMap = getSugarContext().getEntitiesMap();
         List<Field> columns = ReflectionUtil.getTableFields(object.getClass());
         ContentValues values = new ContentValues(columns.size());
-        Field idField = null;
+        Field idField = SchemaGenerator.findAnnotatedField(object.getClass(), Id.class);
         for (Field column : columns) {
             ReflectionUtil.addFieldValueToColumn(values, column, object, entitiesMap);
-            if (column.getName().equals("id")) {
-                idField = column;
-            }
+//            if (column.getName().equals("id")) {
+//                idField = column;
+//            }
         }
 
         boolean isSugarEntity = isSugarEntity(object.getClass());
         if (isSugarEntity && entitiesMap.containsKey(object)) {
-                values.put("id", entitiesMap.get(object));
+//                values.put("id", entitiesMap.get(object));
+            Object colOb = entitiesMap.get(object);
+            if(colOb instanceof Integer){
+                values.put(idField.getName(), (Integer) entitiesMap.get(object));
+            }else if(colOb instanceof Long){
+                values.put(idField.getName(), (Long) entitiesMap.get(object));
+            }else if(colOb instanceof String){
+                values.put(idField.getName(), (String) entitiesMap.get(object));
+            }
         }
 
         long id = db.insertWithOnConflict(NamingHelper.toTableName(object.getClass()), null, values,
@@ -347,11 +400,11 @@ public class SugarRecord {
                 entitiesMap.put(object, id);
             }
         } else if (SugarRecord.class.isAssignableFrom(object.getClass())) {
-            ((SugarRecord) object).setId(id);
+//            ((SugarRecord) object).setId(id);
         }
 
         if (ManifestHelper.isDebugEnabled()) {
-            Log.i(SUGAR, object.getClass().getSimpleName() + " saved : " + id);
+            Log.i(LOG_TAG, object.getClass().getSimpleName() + " saved : " + id);
         }
 
         return id;
@@ -362,12 +415,14 @@ public class SugarRecord {
     }
 
     static long update(SQLiteDatabase db, Object object) {
-        Map<Object, Long> entitiesMap = getSugarContext().getEntitiesMap();
+        Map<Object, Object> entitiesMap = getSugarContext().getEntitiesMap();
         List<Field> columns = ReflectionUtil.getTableFields(object.getClass());
         ContentValues values = new ContentValues(columns.size());
 
         StringBuilder whereClause = new StringBuilder();
         List<String> whereArgs = new ArrayList<>();
+
+        Field id = SchemaGenerator.findAnnotatedField(object.getClass(), Id.class);
 
         for (Field column : columns) {
             if(column.isAnnotationPresent(Unique.class)) {
@@ -382,7 +437,7 @@ public class SugarRecord {
                     e.printStackTrace();
                 }
             } else {
-                if (!column.getName().equals("id")) {
+                if (id == null || !column.getName().equals(id.getName())) {
                     ReflectionUtil.addFieldValueToColumn(values, column, object, entitiesMap);
                 }
             }
@@ -399,61 +454,73 @@ public class SugarRecord {
         }
     }
 
+    public static <T> long update(Class<T> tClass, ContentValues values, String whereClause, String... selectionArgs){
+        SQLiteDatabase db = getSugarDataBase();
+        return db.update(NamingHelper.toTableName(tClass), values, whereClause, selectionArgs);
+    }
+
     public static boolean isSugarEntity(Class<?> objectClass) {
         return objectClass.isAnnotationPresent(Table.class) || SugarRecord.class.isAssignableFrom(objectClass);
     }
 
     public boolean delete() {
-        Long id = getId();
+//        IdType id = getId();
         Class<?> type = getClass();
-        if (id != null && id > 0L) {
+        Field id = SchemaGenerator.findAnnotatedField(type, Id.class);
+//        if (id != null && id > 0L) {
+        if (id != null) {
             if(ManifestHelper.isDebugEnabled()) {
-                Log.i(SUGAR, type.getSimpleName() + " deleted : " + id);
+                Log.i(LOG_TAG, type.getSimpleName() + " deleted : " + id);
             }
-            return getSugarDataBase().delete(NamingHelper.toTableName(type), "Id=?", new String[]{id.toString()}) == 1;
+            return getSugarDataBase().delete(NamingHelper.toTableName(type), id.getName()+"=?", new String[]{id.toString()}) == 1;
         } else {
             if(ManifestHelper.isDebugEnabled()) {
-                Log.i(SUGAR, "Cannot delete object: " + type.getSimpleName() + " - object has not been saved");
+                Log.i(LOG_TAG, "Cannot delete object: " + type.getSimpleName() + " - object has not been saved");
             }
             return false;
         }
     }
 
+
+
     public static boolean delete(Object object) {
         Class<?> type = object.getClass();
         if (type.isAnnotationPresent(Table.class)) {
             try {
-                Field field = type.getDeclaredField("id");
-                field.setAccessible(true);
-                Long id = (Long) field.get(object);
-                if (id != null && id > 0L) {
-                    boolean deleted = getSugarDataBase().delete(NamingHelper.toTableName(type), "Id=?", new String[]{id.toString()}) == 1;
-                    if(ManifestHelper.isDebugEnabled()) {
-                        Log.i(SUGAR, type.getSimpleName() + " deleted : " + id);
+                Field id = SchemaGenerator.findAnnotatedField(type, Id.class);
+                id.setAccessible(true);
+                if (id != null) {
+                    boolean deleted = getSugarDataBase().delete(NamingHelper.toTableName(type), id.getName() + "=?", new String[]{id.toString()}) == 1;
+                    if (ManifestHelper.isDebugEnabled()) {
+                        Log.i(LOG_TAG, type.getSimpleName() + " deleted : " + id);
                     }
                     return deleted;
                 } else {
-                    if(ManifestHelper.isDebugEnabled()) {
-                        Log.i(SUGAR, "Cannot delete object: " + object.getClass().getSimpleName() + " - object has not been saved");
+                    if (ManifestHelper.isDebugEnabled()) {
+                        Log.i(LOG_TAG, "Cannot delete object: " + object.getClass().getSimpleName() + " - object has not been saved");
                     }
                     return false;
                 }
-            } catch (NoSuchFieldException e) {
-                if(ManifestHelper.isDebugEnabled()) {
-                    Log.i(SUGAR, "Cannot delete object: " + object.getClass().getSimpleName() + " - annotated object has no id");
-                }
-                return false;
-            } catch (IllegalAccessException e) {
-                if(ManifestHelper.isDebugEnabled()) {
-                    Log.i(SUGAR, "Cannot delete object: " + object.getClass().getSimpleName() + " - can't access id");
-                }
+//            } catch (NoSuchFieldException e) {
+//                if(ManifestHelper.isDebugEnabled()) {
+//                    Log.i(SUGAR, "Cannot delete object: " + object.getClass().getSimpleName() + " - annotated object has no id");
+//                }
+//                return false;
+//            } catch (IllegalAccessException e) {
+//                if(ManifestHelper.isDebugEnabled()) {
+//                    Log.i(SUGAR, "Cannot delete object: " + object.getClass().getSimpleName() + " - can't access id");
+//                }
+//                return false;
+//            }
+            }catch (Exception ignored){
+                Log.d(LOG_TAG, "Exception deleting: "+ignored.getMessage());
                 return false;
             }
         } else if (SugarRecord.class.isAssignableFrom(type)) {
             return ((SugarRecord) object).delete();
         } else {
             if(ManifestHelper.isDebugEnabled()) {
-                Log.i(SUGAR, "Cannot delete object: " + object.getClass().getSimpleName() + " - not persisted");
+                Log.i(LOG_TAG, "Cannot delete object: " + object.getClass().getSimpleName() + " - not persisted");
             }
             return false;
         }
@@ -476,12 +543,19 @@ public class SugarRecord {
                 .inflate();
     }
 
-    public Long getId() {
-        return id;
-    }
 
-    public void setId(Long id) {
-        this.id = id;
+    public String getIdField(){
+        Field id = SchemaGenerator.findAnnotatedField(getClass(), Id.class);
+        id.setAccessible(true);
+        if(id != null) {
+            try {
+                return String.valueOf(id.get(this));
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+                Log.d(LOG_TAG, "Error getting id field: "+e.getMessage());
+            }
+        }
+        return null;
     }
 
     static class CursorIterator<E> implements Iterator<E> {
@@ -545,6 +619,10 @@ public class SugarRecord {
 
         return replace;
 
+    }
+
+    public static String column(String field){
+        return NamingHelper.toSQLNameDefault(field);
     }
 
 }

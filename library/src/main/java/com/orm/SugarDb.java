@@ -32,6 +32,7 @@ public class SugarDb extends SQLiteOpenHelper {
 
     @Override
     public void onCreate(SQLiteDatabase sqLiteDatabase) {
+        Log.d(LOG_TAG, "On create called");
         schemaGenerator.createDatabase(sqLiteDatabase);
     }
 

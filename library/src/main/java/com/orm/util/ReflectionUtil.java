@@ -5,6 +5,8 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.util.Log;
 
+import com.orm.Id;
+import com.orm.SchemaGenerator;
 import com.orm.SugarRecord;
 import com.orm.annotation.Ignore;
 import com.orm.annotation.Table;
@@ -66,33 +68,46 @@ public final class ReflectionUtil {
     }
 
     public static void addFieldValueToColumn(ContentValues values, Field column, Object object,
-                                             Map<Object, Long> entitiesMap) {
-        column.setAccessible(true);
-        Class<?> columnType = column.getType();
+                                             Map<Object, Object> entitiesMap) {
+        column.setAccessible(true); //column field
+        Class<?> columnType = column.getType(); //type of the column
         try {
-            String columnName = NamingHelper.toColumnName(column);
-            Object columnValue = column.get(object);
+            String columnName = NamingHelper.toColumnName(column); //name of the column
+            Object columnValue = column.get(object); //current value of the column
 
-            if (columnType.isAnnotationPresent(Table.class)) {
-                Field field;
-                try {
-                    field = columnType.getDeclaredField("id");
-                    field.setAccessible(true);
-                    if(columnValue != null) {
-                        values.put(columnName,String.valueOf(field.get(columnValue)));
-                    } else {
-                        values.putNull(columnName);
+            if (columnType.isAnnotationPresent(Table.class)) { //if column is table
+                Field field; //get id field
+//                try {
+//                    field = columnType.getDeclaredField("id");
+                    field = SchemaGenerator.findAnnotatedField(columnType, Id.class);
+                    if(field!=null) {
+                        field.setAccessible(true);
+                        if (columnValue != null) {
+                            values.put(columnName, String.valueOf(field.get(columnValue)));
+                        } else {
+                            values.putNull(columnName);
+                        }
                     }
-                } catch (NoSuchFieldException e) {
-                    if (entitiesMap.containsKey(columnValue)) {
-                        values.put(columnName, entitiesMap.get(columnValue));
-                    }
-                }
+//                } catch (NoSuchFieldException e) {
+//                    if (entitiesMap.containsKey(columnValue)) {
+//                        Object colOb = entitiesMap.get(columnName);
+//                        if(colOb instanceof Integer){
+//                            values.put(columnName, (Integer) entitiesMap.get(columnValue));
+//                        }else if(colOb instanceof Long){
+//                            values.put(columnName, (Long) entitiesMap.get(columnValue));
+//                        }else if(colOb instanceof String){
+//                            values.put(columnName, (String) entitiesMap.get(columnValue));
+//                        }
+//                    }
+//                }
             } else if (SugarRecord.class.isAssignableFrom(columnType)) {
                 values.put(columnName,
                         (columnValue != null)
-                                ? String.valueOf(((SugarRecord) columnValue).getId())
+                                ? ((SugarRecord) columnValue).getIdField()
                                 : "0");
+                if(columnValue!=null){
+                    ((SugarRecord)columnValue).save();
+                }
             } else {
                 if (columnType.equals(Short.class) || columnType.equals(short.class)) {
                     values.put(columnName, (Short) columnValue);

@@ -13,11 +13,11 @@ public class SugarContext {
     private static SugarDbConfiguration dbConfiguration = null;
     private static SugarContext instance = null;
     private SugarDb sugarDb;
-    private Map<Object, Long> entitiesMap;
+    private Map<Object, Object> entitiesMap;
 
     private SugarContext() {
         this.sugarDb = SugarDb.getInstance();
-        this.entitiesMap = Collections.synchronizedMap(new WeakHashMap<Object, Long>());
+        this.entitiesMap = Collections.synchronizedMap(new WeakHashMap<Object, Object>());
     }
     
     public static SugarContext getSugarContext() {
@@ -67,7 +67,7 @@ public class SugarContext {
         return sugarDb;
     }
 
-    public Map<Object, Long> getEntitiesMap() {
+    public Map<Object, Object> getEntitiesMap() {
         return entitiesMap;
     }
 }

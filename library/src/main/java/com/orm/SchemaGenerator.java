@@ -9,7 +9,6 @@ import com.orm.annotation.Column;
 import com.orm.annotation.MultiUnique;
 import com.orm.annotation.NotNull;
 import com.orm.annotation.Unique;
-import com.orm.dsl.BuildConfig;
 import com.orm.helper.ManifestHelper;
 import com.orm.util.KeyWordUtil;
 import com.orm.util.MigrationFileParser;
@@ -22,6 +21,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.lang.annotation.Annotation;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -32,6 +34,9 @@ import static com.orm.util.ReflectionUtil.getDomainClasses;
 import static com.orm.util.ContextUtil.getAssets;
 
 public class SchemaGenerator {
+
+    private static final String LOG_TAG = "Sugar";
+
     public static final String NULL = " NULL";
     public static final String NOT_NULL = " NOT NULL";
     public static final String UNIQUE = " UNIQUE";
@@ -46,7 +51,9 @@ public class SchemaGenerator {
 
     public void createDatabase(SQLiteDatabase sqLiteDatabase) {
         List<Class> domainClasses = getDomainClasses();
+        Log.d(LOG_TAG, "Creating tables for classes: "+domainClasses.size());
         for (Class domain : domainClasses) {
+            Log.d(LOG_TAG, "Creating table for : "+domain.getSimpleName());
             createTable(domain, sqLiteDatabase);
             afterTableCreated(domain,sqLiteDatabase);
         }
@@ -200,6 +207,16 @@ public class SchemaGenerator {
         }
     }
 
+    private <T> List<Field> getFields(T t) {
+        List<Field> fields = new ArrayList<>();
+        Class clazz = t.getClass();
+        while (clazz != Object.class) {
+            fields.addAll(Arrays.asList(clazz.getDeclaredFields()));
+            clazz = clazz.getSuperclass();
+        }
+        return fields;
+    }
+
     protected String createTableSQL(Class<?> table) {
         if(ManifestHelper.isDebugEnabled()) {
             Log.i(SUGAR, "Create table if not exists");
@@ -214,14 +231,31 @@ public class SchemaGenerator {
         }
 
         StringBuilder sb = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
-        sb.append(tableName).append(" ( ID INTEGER PRIMARY KEY AUTOINCREMENT ");
+
+        sb.append(tableName).append(" ( ");
+
+        Field idField = findAnnotatedField(table, Id.class);
+
+        if(idField!= null) {
+            sb.append(idField.getName());
+            if (idField.getType() == Integer.class || idField.getType() == Long.class) {
+                sb.append(" INTEGER PRIMARY KEY AUTOINCREMENT ");
+            } else if (idField.getType() == String.class) {
+                sb.append(" TEXT PRIMARY KEY ");
+            } else {
+                throw new IllegalArgumentException("Annotated ID field was of different type, only Integer | Long | String alloweed");
+            }
+        }else{
+            sb.append("id INTEGER PRIMARY KEY AUTOINCREMENT ");
+        }
+
 
         for (Field column : fields) {
             String columnName = NamingHelper.toColumnName(column);
             String columnType = QueryBuilder.getColumnType(column.getType());
 
             if (columnType != null) {
-                if (columnName.equalsIgnoreCase("Id")) {
+                if (idField != null && columnName.equalsIgnoreCase(idField.getName())) {
                     continue;
                 }
 
@@ -293,8 +327,22 @@ public class SchemaGenerator {
                 sqLiteDatabase.execSQL(createSQL);
             } catch (SQLException e) {
                 e.printStackTrace();
+                Log.d(LOG_TAG, "Exception: "+e.getMessage());
             }
         }
+    }
+
+    public static Field findAnnotatedField(Class<?> classs, Class<? extends Annotation> ann) {
+        Class<?> c = classs;
+        while (c != null) {
+            for (Field field : c.getDeclaredFields()) {
+                if (field.isAnnotationPresent(ann)) {
+                    return field;
+                }
+            }
+            c = c.getSuperclass();
+        }
+        return null;
     }
 
 }

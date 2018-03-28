@@ -115,7 +115,7 @@ public class Condition {
 
     private void setValue(Object value) {
         if (value instanceof SugarRecord) {
-            this.value = ((SugarRecord)value).getId();
+            this.value = ((SugarRecord)value).getIdField();
         } else {
             this.value = value;
         }
