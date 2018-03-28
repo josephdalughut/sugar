@@ -7,6 +7,8 @@ import android.database.sqlite.SQLiteException;
 import android.database.sqlite.SQLiteStatement;
 import android.text.TextUtils;
 import android.util.Log;
+
+import com.orm.annotation.Id;
 import com.orm.annotation.Table;
 import com.orm.annotation.Unique;
 import com.orm.helper.ManifestHelper;
@@ -124,15 +126,15 @@ public class SugarRecord {
         return deletedRows;
     }
 
-    public static <T> List<T> listAll(Class<T> type) {
+    public static <T extends SugarRecord> List<T> listAll(Class<T> type) {
         return find(type, null, null, null, null, null);
     }
 
-    public static <T> List<T> listAll(Class<T> type, String orderBy) {
+    public static <T extends SugarRecord> List<T> listAll(Class<T> type, String orderBy) {
         return find(type, null, null, null, orderBy, null);
     }
 
-    public static <T> T findById(Class<T> type, Long id) {
+    public static <T extends SugarRecord> T findById(Class<T> type, Long id) {
         Field idField = SchemaGenerator.findAnnotatedField(type, Id.class);
         if(idField == null)
             return null;
@@ -141,11 +143,11 @@ public class SugarRecord {
         return list.get(0);
     }
 
-    public static <T> T findById(Class<T> type, Integer id) {
+    public static <T extends SugarRecord> T findById(Class<T> type, Integer id) {
         return findById(type, Long.valueOf(id));
     }
 
-    public static <T> T findById(Class<T> type, String id) {
+    public static <T extends SugarRecord> T findById(Class<T> type, String id) {
         Field idField = SchemaGenerator.findAnnotatedField(type, Id.class);
         if(idField == null)
             return null;
@@ -154,7 +156,7 @@ public class SugarRecord {
         return list.get(0);
     }
 
-    public static <T> List<T> findById(Class<T> type, String... ids) {
+    public static <T extends SugarRecord> List<T> findById(Class<T> type, String... ids) {
         Field idField = SchemaGenerator.findAnnotatedField(type, Id.class);
         if(idField == null)
             return null;
@@ -162,7 +164,7 @@ public class SugarRecord {
         return find(type, whereClause, ids);
     }
 
-    public static <T> T first(Class<T>type) {
+    public static <T extends SugarRecord> T first(Class<T>type) {
         List<T> list = findWithQuery(type,
                 "SELECT * FROM " + NamingHelper.toTableName(type) + " ORDER BY ID ASC LIMIT 1");
         if (list.isEmpty()) {
@@ -171,7 +173,7 @@ public class SugarRecord {
         return list.get(0);
     }
 
-    public static <T> T last(Class<T>type) {
+    public static <T extends SugarRecord> T last(Class<T>type) {
         List<T> list = findWithQuery(type,
                 "SELECT * FROM " + NamingHelper.toTableName(type) + " ORDER BY ID DESC LIMIT 1");
         if (list.isEmpty()) {
@@ -180,30 +182,30 @@ public class SugarRecord {
         return list.get(0);
     }
 
-    public static <T> Iterator<T> findAll(Class<T> type) {
+    public static <T extends SugarRecord> Iterator<T> findAll(Class<T> type) {
         return findAsIterator(type, null, null, null, null, null);
     }
 
-    public static <T> Iterator<T> findAsIterator(Class<T> type, String whereClause, String... whereArgs) {
+    public static <T extends SugarRecord> Iterator<T> findAsIterator(Class<T> type, String whereClause, String... whereArgs) {
         return findAsIterator(type, whereClause, whereArgs, null, null, null);
     }
 
-    public static <T> Iterator<T> findWithQueryAsIterator(Class<T> type, String query, String... arguments) {
+    public static <T extends SugarRecord> Iterator<T> findWithQueryAsIterator(Class<T> type, String query, String... arguments) {
         Cursor cursor = getSugarDataBase().rawQuery(query, arguments);
         return new CursorIterator<>(type, cursor);
     }
 
-    public static <T> Iterator<T> findAsIterator(Class<T> type, String whereClause, String[] whereArgs, String groupBy, String orderBy, String limit) {
+    public static <T extends SugarRecord> Iterator<T> findAsIterator(Class<T> type, String whereClause, String[] whereArgs, String groupBy, String orderBy, String limit) {
         Cursor cursor = getSugarDataBase().query(NamingHelper.toTableName(type), null, whereClause, whereArgs,
                 groupBy, null, orderBy, limit);
         return new CursorIterator<>(type, cursor);
     }
 
-    public static <T> List<T> find(Class<T> type, String whereClause, String... whereArgs) {
+    public static <T extends SugarRecord> List<T> find(Class<T> type, String whereClause, String... whereArgs) {
         return find(type, whereClause, whereArgs, null, null, null);
     }
 
-    public static <T> List<T> findWithQuery(Class<T> type, String query, String... arguments) {
+    public static <T extends SugarRecord> List<T> findWithQuery(Class<T> type, String query, String... arguments) {
         Cursor cursor = getSugarDataBase().rawQuery(query, arguments);
 
         return getEntitiesFromCursor(cursor, type);
@@ -213,7 +215,7 @@ public class SugarRecord {
         getSugarDataBase().execSQL(query, arguments);
     }
 
-    public static <T> List<T> find(Class<T> type, String whereClause, String[] whereArgs, String groupBy, String orderBy, String limit) {
+    public static <T extends SugarRecord> List<T> find(Class<T> type, String whereClause, String[] whereArgs, String groupBy, String orderBy, String limit) {
 
         String args[];
         args = (whereArgs == null) ? null : replaceArgs(whereArgs);
@@ -224,7 +226,7 @@ public class SugarRecord {
         return getEntitiesFromCursor(cursor, type);
     }
 
-    public static <T> List<T> findOneToMany(Class<T> type, String relationFieldName, Object relationObject, Long relationObjectId) {
+    public static <T extends SugarRecord> List<T> findOneToMany(Class<T> type, String relationFieldName, Object relationObject, Long relationObjectId) {
         String args[] = { String.valueOf(relationObjectId) };
         String whereClause = NamingHelper.toSQLNameDefault(relationFieldName) + " = ?";
 
@@ -234,11 +236,11 @@ public class SugarRecord {
         return getEntitiesFromCursor(cursor, type, relationFieldName, relationObject);
     }
 
-    public static <T> List<T> getEntitiesFromCursor(Cursor cursor, Class<T> type){
+    public static <T extends SugarRecord> List<T> getEntitiesFromCursor(Cursor cursor, Class<T> type){
         return getEntitiesFromCursor(cursor, type, null, null);
     }
 
-    public static <T> T getEntityFromCursor(Cursor cursor, Class<T> type){
+    public static <T extends SugarRecord> T getEntityFromCursor(Cursor cursor, Class<T> type){
         T entity = null;
         try {
             entity = type.getDeclaredConstructor().newInstance();
@@ -249,7 +251,6 @@ public class SugarRecord {
                     .withRelationFieldName(null)
                     .withRelationObject(null)
                     .inflate();
-
             //set id here
             Field idField = SchemaGenerator.findAnnotatedField(type, Id.class);
             if(idField != null){
@@ -267,7 +268,7 @@ public class SugarRecord {
                     idField.set(entity, id);
                 }
             }
-
+            entity.onLoad();
             return entity;
         }catch (Exception e){
             e.printStackTrace();
@@ -275,7 +276,7 @@ public class SugarRecord {
         return entity;
     }
 
-    public static <T> List<T> getEntitiesFromCursor(Cursor cursor, Class<T> type, String relationFieldName, Object relationObject){
+    public static <T extends SugarRecord> List<T> getEntitiesFromCursor(Cursor cursor, Class<T> type, String relationFieldName, Object relationObject){
         T entity;
         List<T> result = new ArrayList<>();
         try {
@@ -558,7 +559,7 @@ public class SugarRecord {
         return null;
     }
 
-    static class CursorIterator<E> implements Iterator<E> {
+    static class CursorIterator<E extends SugarRecord> implements Iterator<E> {
         Class<E> type;
         Cursor cursor;
 
@@ -590,6 +591,7 @@ public class SugarRecord {
                         .withObject(entity)
                         .withEntitiesMap(getSugarContext().getEntitiesMap())
                         .inflate();
+                entity.onLoad();
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
@@ -607,6 +609,8 @@ public class SugarRecord {
             throw new UnsupportedOperationException();
         }
     }
+
+    public void onLoad(){}
 
     public static String[] replaceArgs(String[] args){
 

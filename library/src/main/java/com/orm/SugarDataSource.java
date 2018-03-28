@@ -16,7 +16,7 @@ import static com.orm.util.ThreadUtil.*;
  * @author jonatan.salas
  */
 @SuppressWarnings("all")
-public final class SugarDataSource<T> {
+public final class SugarDataSource<T extends SugarRecord> {
     private final Class<T> sClass;
 
     /**
@@ -39,7 +39,7 @@ public final class SugarDataSource<T> {
      * @param <T> generic argument that must be a SugarRecord extended class or @Table annotated class
      * @return an instance of SugarDataSource
      */
-    public static <T> SugarDataSource<T> getInstance(Class<T> sClass) {
+    public static <T extends SugarRecord> SugarDataSource<T> getInstance(Class<T> sClass) {
         return new SugarDataSource<>(sClass);
     }
 

@@ -1,4 +1,4 @@
-package com.orm;
+package com.orm.annotation;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

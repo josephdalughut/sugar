@@ -3,7 +3,7 @@ package com.orm.inflater;
 import android.database.Cursor;
 import android.util.Log;
 
-import com.orm.Id;
+import com.orm.annotation.Id;
 import com.orm.SchemaGenerator;
 import com.orm.SugarRecord;
 import com.orm.inflater.field.*;
