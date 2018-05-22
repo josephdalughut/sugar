@@ -5,11 +5,15 @@ android {
 //    compileSdkVersion 23
 //    buildToolsVersion "23.0.3"
     compileSdkVersion 27
-    buildToolsVersion "26.0.2"
+//    buildToolsVersion "26.0.2"
 
     defaultConfig {
         minSdkVersion 9
-        targetSdkVersion 23
+        targetSdkVersion 27
+        versionCode 1
+        versionName "0.1.0"
+        project.archivesBaseName = "sugar"
+        setProperty("archivesBaseName", "${archivesBaseName}-$versionName")
     }
     buildTypes {
         release {
@@ -25,8 +29,8 @@ android {
 }
 
 dependencies {
-    testCompile 'junit:junit:4.12'
-    testCompile 'org.robolectric:robolectric:3.0'
+    testImplementation 'junit:junit:4.12'
+    testImplementation 'org.robolectric:robolectric:3.0'
 }
 
 task libraryJar(type: Jar) {

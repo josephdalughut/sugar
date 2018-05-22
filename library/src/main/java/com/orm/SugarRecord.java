@@ -401,6 +401,19 @@ public class SugarRecord {
         long id = db.insertWithOnConflict(NamingHelper.toTableName(object.getClass()), null, values,
                 SQLiteDatabase.CONFLICT_REPLACE);
 
+        Log.d(LOG_TAG, "ID: "+id);
+        if (idField.getType() == Integer.class || idField.getType() == Long.class) {
+            Log.d(LOG_TAG, "Setting id field");
+            idField.setAccessible(true);
+            try {
+                idField.set(object, id);
+                Log.d(LOG_TAG, "ID set");
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+                Log.d(LOG_TAG, "Error setting id: "+e.getMessage());
+            }
+        }
+
         if (object.getClass().isAnnotationPresent(Table.class)) {
             if (idField != null) {
                 idField.setAccessible(true);
@@ -438,10 +451,12 @@ public class SugarRecord {
         Field id = SchemaGenerator.findAnnotatedField(object.getClass(), Id.class);
 
         for (Field column : columns) {
-            if(column.isAnnotationPresent(Unique.class)) {
+            if(column.isAnnotationPresent(Unique.class) || column.isAnnotationPresent(Id.class)) {
+
                 try {
                     column.setAccessible(true);
                     String columnName = NamingHelper.toColumnName(column);
+                    Log.d(LOG_TAG, "Adding unique field: "+columnName);
                     Object columnValue = column.get(object);
 
                     whereClause.append(columnName).append(" = ?");
@@ -458,6 +473,8 @@ public class SugarRecord {
 
         String[] whereArgsArray = whereArgs.toArray(new String[whereArgs.size()]);
         // Get SugarRecord based on Unique values
+        Log.d(LOG_TAG, "Where clause: "+whereClause.toString());
+        Log.d(LOG_TAG, "Where args: "+TextUtils.join(" ", whereArgsArray));
         long rowsEffected = db.update(NamingHelper.toTableName(object.getClass()), values, whereClause.toString(), whereArgsArray);
 
         if (rowsEffected == 0) {
